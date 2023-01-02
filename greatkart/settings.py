@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'category',
     'accounts',
     'store',
+    'carts',
 ]
 
 MIDDLEWARE = [
@@ -67,6 +68,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 # menu_links podera ser usado em qualquer template
                 'category.context_processors.menu_links',#para utilizar no menu de filtro de categorias no frontend
+                'carts.context_processors.counter',
             ],
         },
     },
