@@ -137,3 +137,16 @@ STATICFILES_DIRS = [
 # configuraçao dos arquivos de midia
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# para informar que serao utilizadas mensagens do django
+from django.contrib.messages import constants as messages
+MESSAGE_TAGS = {
+    messages.ERROR: 'danger',
+} 
+
+# smtp configuration
+EMAIL_HOST = 'smtp_gmail.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'ruhancorreasoares@gmail.com'
+EMAIL_HOST_PASSWORD = 'ymocvcrsnpsaedvv'
+EMAIL_USE_TLS = True
