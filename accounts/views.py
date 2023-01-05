@@ -12,6 +12,10 @@ from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMessage
 
+from carts.models import Cart, CartItem
+from carts.views import _cart_id
+
+import requests
 
 # Create your views here.
 def register(request):
@@ -68,9 +72,58 @@ def login(request):
         user = auth.authenticate(email=email,password=password)
 
         if user:
+            try:
+                # verificar se ja exite um carrinho com compras
+                # _cart_id e a funçao dentro de views de carts para pegar o id de cart da pagina
+                cart = Cart.objects.get(cart_id=_cart_id(request))
+                is_cart_item_exists = CartItem.objects.filter(cart=cart).exists()
+                if is_cart_item_exists:
+                    cart_item = CartItem.objects.filter(cart=cart)#todos os itens dentro do cart
+
+                    product_variation = []
+                    for item in cart_item:
+                        variation = item.variation.all()#todas as variaçoes do produto
+                        product_variation.append(list(variation))
+                    
+                    if is_cart_item_exists:
+                        cart_item = CartItem.objects.filter( user=user)       
+                        # verificar se a variaçao ja existe no carrinho
+                        ex_var_list = []
+                        id = []
+                        for item in cart_item:
+                            existing_variation = item.variation.all()
+                            ex_var_list.append(list(existing_variation))
+                            id.append(item.id)
+                        
+                    # verificar se as variaçoes do product_variation existe em ex_var_list
+                        for pr in product_variation:
+                            if pr in ex_var_list:
+                                index = ex_var_list.index(pr)#posiçao que foi encontrado o item
+                                item_id = id[index]
+                                item =  CartItem.objects.get(id=item_id)
+                                item.quantity += 1
+                                item.user = user
+                                item.save()
+                            else:#se a variaçao nao existe em ex_var_list
+                                cart_item = CartItem.objects.filter(cart=cart)
+                                for item in cart_item:
+                                    item.user = user
+                                    item.save()
+            except:
+                pass
             auth.login(request,user)
             messages.success(request,'You are now logged in')
-            return redirect('dashboard')
+            url = request.META.get('HTTP_REFERER')#para pegar a url anterior
+            try:
+                query = requests.utils.urlparse(url).query#para pegar a url cart/checkout
+                print('_______________')
+                print(query)
+                params = dict(x.split('=') for x in query.split('&'))
+                if 'next' in params:
+                    next_page = params['next']
+                    return redirect(next_page)
+            except:
+                return redirect('dashboard')
         else:
             messages.error(request,'Invalid email or password')
             return redirect('login')
