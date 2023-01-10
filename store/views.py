@@ -1,10 +1,13 @@
-from django.shortcuts import render, get_object_or_404
-from store.models import Product
+from django.shortcuts import render, get_object_or_404, redirect
+from store.models import Product,ReviewRating,ProductGallery
+from .forms import ReviewForms
 from category.models import Category
 from carts.models import CartItem
+from orders.models import OrderProduct
 from carts.views import _cart_id
 from django.core.paginator import EmptyPage,PageNotAnInteger,Paginator # para inserir paginaçao na pagina
 from django.db.models import Q
+from django.contrib import messages
 
 def store(request, category_slug = None):
     categories = None
@@ -41,10 +44,28 @@ def product_detail(request,category_slug,product_slug):
     
     except Exception as e:
         raise e
+
+    if request.user.is_authenticated:
+        # verificar se o usuario ja comprou o produto
+        try:
+            orderproduct = OrderProduct.objects.filter(user=request.user,product_id=product.id).exists()
+        except OrderProduct.DoesNotExist:
+            orderproduct = None
+    else:
+        orderproduct = None
     
+    # adicionar as avaliaçoes do produto a product_details.html
+    reviews = ReviewRating.objects.filter(product_id = product.id, status=True)
+
+    # pegar a galeria de imagens do produto
+    product_gallery = ProductGallery.objects.filter(product_id = product.id)
+
     context = {
         'product': product,
-        'in_cart': in_cart
+        'in_cart': in_cart,
+        'order_product':orderproduct,
+        'reviews':reviews,
+        'product_gallery':product_gallery
     }
 
     return render(request, 'store/product_detail.html', context)
@@ -60,3 +81,29 @@ def search(request):
         'products_count': product_count
     }
     return render(request, 'store/store.html', context)
+
+
+def submit_review(request,product_id):
+    # pegar a url que esta
+    url = request.META.get('HTTP_REFERER')
+    if request.method == 'POST':
+        try:
+            # caso o usuario ja tenha feito review do produto
+            reviews = ReviewRating.objects.get(user__id=request.user.id,product__id=product_id)
+            form = ReviewForms(request.POST, instance=reviews)#para substituir o review anterior do usuario
+            form.save()
+            messages.success(request, 'Thank you! Your review has been updated')
+            return redirect(url)
+        except ReviewRating.DoesNotExist:
+            form = ReviewForms(request.POST)
+            if form.is_valid():
+                data = ReviewRating()
+                data.subject = form.cleaned_data['subject']
+                data.rating = form.cleaned_data['rating']
+                data.review = form.cleaned_data['review']
+                data.ip = request.META.get('REMOTE_ADDR')#pegar o ip do usuario
+                data.product_id = product_id
+                data.user_id = request.user.id
+                data.save()
+                messages.success(request, 'Thank you! Your review has been submitted')
+                return redirect(url)
